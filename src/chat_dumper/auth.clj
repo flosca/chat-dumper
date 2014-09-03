@@ -1,0 +1,50 @@
+(ns chat-dumper.auth
+  (:require
+   [chat-dumper.edn     :as edn]
+   [clojure.string      :as str]
+   [clojure.set         :as set]
+   [clojure.data.json   :as json]
+   [clojure.java.browse :as browse]
+   [org.httpkit.client  :as http]))
+
+
+(def app-id
+  ((edn/config) :app-id))
+
+
+
+;; Authorizing in app via OAuth:
+
+(defn oauth-url
+  [app-id scope redirect-uri display version]
+  (format
+   "https://oauth.vk.com/authorize?client_id=%s&scope=%s&redirect_uri=&s&display=&s&v=%s&response_type=token&revoke=1"
+   app-id
+   scope
+   redirect-uri
+   display
+   version))
+
+
+(def permissions
+  "notify,friends,photos,audio,video,docs,notes,pages,status,offers,questions,wall,groups,messages,notifications,stats")
+
+(def standalone-redirect-url "https://oauth.vk.com/blank.html")
+
+(defn make-auth []
+  (browse/browse-url
+   (oauth-url app-id permissions standalone-redirect-url "popup" "5.24")))
+
+
+
+;; Access to API methods:
+
+(def token
+  ((edn/config) :token))
+
+(defn make-api-call [method-name parameters token]
+  (format
+   "https://api.vk.com/method/%s?%s&access_token=%s"
+   method-name
+   parameters
+   token))
