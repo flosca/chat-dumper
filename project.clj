@@ -6,4 +6,5 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.reader "0.8.8"]
                  [http-kit "2.1.18"]
-                 [org.clojure/data.json "0.2.6"]])
+                 [org.clojure/data.json "0.2.5"]
+                 [clj-time "0.8.0"]])
