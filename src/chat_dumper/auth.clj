@@ -1,11 +1,7 @@
 (ns chat-dumper.auth
   (:require
    [chat-dumper.edn     :as edn]
-   [clojure.string      :as str]
-   [clojure.set         :as set]
-   [clojure.data.json   :as json]
-   [clojure.java.browse :as browse]
-   [org.httpkit.client  :as http]))
+   [clojure.java.browse :as browse]))
 
 
 (def app-id
@@ -42,7 +38,7 @@
 (def token
   ((edn/config) :token))
 
-(defn make-api-call [method-name parameters token]
+(defn api-call-url [method-name parameters token]
   (format
    "https://api.vk.com/method/%s?%s&access_token=%s"
    method-name
