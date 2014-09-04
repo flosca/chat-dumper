@@ -30,18 +30,3 @@
   (browse/browse-url
    (oauth-url app-id permissions standalone-redirect-url "popup" "5.24")))
 
-
-
-
-;; Access to API methods:
-
-(def token
-  ((edn/config) :token))
-
-(defn api-call-url [method-name parameters token]
-  (format
-   "https://api.vk.com/method/%s?%s&access_token=%s"
-   method-name
-   parameters
-   token))
-
