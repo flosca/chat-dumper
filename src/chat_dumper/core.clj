@@ -4,70 +4,113 @@
    [chat-dumper.api    :as api]
    [chat-dumper.auth   :as auth]
    [clojure.string     :as s]
+   [clojure.java.io    :as io]
    [clj-time.coerce    :as c]))
 
 (def max-count 200)
-#_(def token ((edn/config) :token))
 
 
+
+;; for users:
 
 (defn get-history-from-user
   [offset user-id]
-  (Thread/sleep 350)
-  (:response (api/call-api "messages.getHistory"
-                           {:offset offset
-                            :count max-count
-                            :user_id user-id
-                            :rev "1"})))
+  (let [call
+        (api/call-async-api "messages.getHistory"
+                            {:offset offset
+                             :count max-count
+                             :user_id user-id
+                             :rev "1"})]
+    (do
+      (Thread/sleep 350)
+      (deref call))))
 
 
-(defn total-count
-  [offset user-id]
-  (:count (get-history-from-user offset user-id)))
-
-(defn items
-  [offset user-id]
-  (:items (get-history-from-user offset user-id)))
-
-
-
-(defn dump-history
+(defn dump-history-from-user
   [user-id]
-  (loop [offset 0
-         result []]
-    (let [messages (map (juxt :user_id :date :body) (items offset user-id))
-          total-count (total-count offset user-id)]
-      (if (>= (+ offset (count messages)) total-count)
-        (into result messages)
-        (do
-          (println offset "done")
-          (recur (+ offset max-count) (into result messages)))))))
+  (let [total-count (-> (get-history-from-chat 0 chat-id) :response :count)]
+    (loop [offset 0
+           result []]
+      (let [messages (map (juxt :user_id :body) (-> (get-history-from-user offset user-id)
+                                                    :response
+                                                    :items))
+            message-count (count messages)]
+        (if (>= (+ offset message-count) total-count)
+          (into result messages)
+          (do
+            (println (+ message-count offset) "done")
+            (recur (+ offset max-count) (into result messages))))))))
+
+
+;; for chats:
+
+
+(defn get-history-from-chat
+  [offset chat-id]
+  (let [call
+        (api/call-async-api "messages.getHistory"
+                            {:offset offset
+                             :count max-count
+                             :chat_id chat-id
+                             :rev "1"})]
+    (do
+      (Thread/sleep 350)
+      (deref call))))
+
+
+(defn dump-history-from-chat
+  [chat-id]
+  (let [total-count (-> (get-history-from-chat 0 chat-id) :response :count)]
+    (loop [offset 0
+           result []]
+      (let [messages (map (juxt :user_id :body) (-> (get-history-from-chat offset chat-id)
+                                                    :response
+                                                    :items))
+            message-count (count messages)]
+        (if (>= (+ offset message-count) total-count)
+          (into result messages)
+          (do
+            (println (+ message-count offset) "done")
+            (recur (+ offset max-count) (into result messages))))))))
+
+
+
+
 
 (defn get-name
   [user-id]
-  (->> (api/call-api "users.get" {:user_id user-id
-                                  :fields "first_name,last_name"})
+  (let [call (api/call-async-api
+              "users.get" {:user_id user-id
+                           :fields "first_name,last_name"})]
+    (do
+      (Thread/sleep 350)
+      (deref call))))
+
+(defn parse-name
+  [name]
+  (->> name
        :response
        (map (juxt :first_name :last_name))
        first
        (s/join " ")))
 
-(defn parse-time
-  [datetime]
-  (.format
-   (java.text.SimpleDateFormat. "(hh:mm:ss dd.MM.yyyy)")
-    datetime))
 
-(defn output-data
-  [logs]
-  (doseq [xs logs]
-    (let [[user datetime body] xs]
-      (println (str (get-name user) "  " (parse-time datetime)))
-      (println body)
-      (println ""))))
+(defn coerce-message-to-string
+  "Coerces a message (Clojure data structure: [user-id body]) to a string"
+  [message]
+  (str ((comp parse-name get-name) (first message)) "\n"
+       (second message) "\n\n"))
 
-(defn write-data
-  [data output-file]
-  (binding [*out* (java.io.PrintWriter. output-file)]
-    (output-data data)))
+
+(defn write-log-to-file
+  [logs output-file]
+  (->> logs
+       (mapcat coerce-message-to-string)
+       (apply str)
+       (spit output-file)))
+
+(defn write-file [data]
+  (with-open [w (clojure.java.io/writer  "f:/w.txt" :append true)]
+    (.write w data)))
+
 
