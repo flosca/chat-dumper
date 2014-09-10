@@ -170,8 +170,6 @@
           (cond
            (= keyw ":chat") (write-chat-log-to-file id)
            (= keyw ":user") (write-user-log-to-file id)
-           :else (println "You've done something wrong!\n
-                          Usage: (lein run :user user-number) for logs with one user
-                          Or (lein run :chat chat-number) for chats."))
+           :else (println usage-logs))
           (catch Throwable e (println (str (.getMessage e)))))
         (System/exit 0)))))
