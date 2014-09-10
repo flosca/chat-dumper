@@ -7,4 +7,5 @@
                  [org.clojure/tools.reader "0.8.8"]
                  [http-kit "2.1.18"]
                  [org.clojure/data.json "0.2.5"]
-                 [clj-time "0.8.0"]])
+                 [clj-time "0.8.0"]]
+  :main chat-dumper.core)

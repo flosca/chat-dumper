@@ -39,7 +39,7 @@
                           (map p/get-message))
             message-count (count messages)]
         (if (zero? total-count)
-          (throw (Exception. "There's nothing to write!\nYour logs with this user are empty. :("))
+          (throw (Throwable. "There's nothing to write!\nYour logs with this user are empty. :("))
           (if (>= (+ offset message-count) total-count)
             (do
               (println "All" total-count "messages are ready! Logs are almost stored in.")
@@ -54,11 +54,11 @@
   (let [take-name (comp p/parse-name p/get-name)
         names [(take-name user-id)
                (take-name p/my-id)]
-        output-file (str "/home/flosca/" user-id ".txt")
+        output-file (str user-id ".txt")
         final-output (if (.exists (io/as-file output-file))
                        (do
                          (io/delete-file output-file)
-                         (str "/home/flosca/" user-id ".txt"))
+                         (str user-id ".txt"))
                        output-file)
         logs (dump-history-from-user user-id)]
     (letfn
@@ -67,7 +67,7 @@
         (str (nth names out) "  " (p/convert-datetime date)
              body
              (if (nil? geo) "" (p/parse-geo geo))
-          ;   (if (nil? fwd) "" )
+             ;   (if (nil? fwd) "" )
              (if (nil? attachments) "" (apply str (mapcat p/parse-att attachments)))
              "\n\n"))]
       (loop [i logs]
@@ -98,34 +98,36 @@
 (defn dump-history-from-chat
   [chat-id]
   (let [total-count (-> (get-history-from-chat 0 chat-id) :response :count)]
-    (println "Total count of messages in chat:" total-count)
-    (loop [offset 0
-           result []]
-      (let [messages (->> (get-history-from-chat offset chat-id)
-                          :response
-                          :items
-                          (map p/get-message))
-            message-count (count messages)]
-        (if (zero? total-count)
-          (throw (Exception. "There's nothing to write!\nYour logs in this chat are empty. :("))
-          (if (>= (+ offset message-count) total-count)
-            (do
-              (println "All" total-count "messages are ready! Logs are almost stored in.")
-              (into result messages))
-            (do
-              (println (+ message-count offset) "messages are ready")
-              (recur (+ offset max-count) (into result messages)))))))))
+    (if (zero? total-count)
+      (throw (Throwable. "There's nothing to write!\nYour logs in this chat are empty. :("))
+      (do
+        (println "Total count of messages in chat:" total-count)
+        (loop [offset 0
+               result []]
+          (let [messages (->> (get-history-from-chat offset chat-id)
+                              :response
+                              :items
+                              (map p/get-message))
+                message-count (count messages)]
+            (if (>= (+ offset message-count) total-count)
+              (do
+                (println "All" total-count "messages are ready! Logs are almost stored in.")
+                (into result messages))
+              (do
+                (println (+ message-count offset) "messages are ready")
+                (recur (+ offset max-count) (into result messages))))))))))
 
 (defn write-chat-log-to-file
   [chat-id]
   (let [logs (dump-history-from-chat chat-id)
         ids-from-logs (set (map second logs))
-        output-file (str "/home/flosca/chat_" chat-id ".txt")
+        output-file (str "chat_" chat-id ".txt")
         final-output (if (.exists (io/as-file output-file))
                        (do
                          (io/delete-file output-file)
-                         (str "/home/flosca/chat_" chat-id ".txt"))
+                         (str "chat_" chat-id ".txt"))
                        output-file)]
+    (println "Writing to file...")
     (letfn
       [(make-list-of-ids
         [chat-id]
@@ -154,3 +156,22 @@
                 (spit final-output
                       (parse-message (first i)) :append true)
                 (recur (rest i))))))))))
+
+(def usage-logs "You've done something wrong!\nUsage: (lein run :user user-number) for logs with one user\nOr (lein run :chat chat-number) for chats.")
+
+
+(defn -main
+  [& args]
+  (if (< (count args) 2)
+    (println usage-logs)
+    (let [[keyw id] args]
+      (do
+        (try
+          (cond
+           (= keyw ":chat") (write-chat-log-to-file id)
+           (= keyw ":user") (write-user-log-to-file id)
+           :else (println "You've done something wrong!\n
+                          Usage: (lein run :user user-number) for logs with one user
+                          Or (lein run :chat chat-number) for chats."))
+          (catch Throwable e (println (str (.getMessage e)))))
+        (System/exit 0)))))
