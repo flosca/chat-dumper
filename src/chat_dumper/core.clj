@@ -1,16 +1,13 @@
 (ns chat-dumper.core
   (:require
-   [chat-dumper.edn     :as edn]
    [chat-dumper.api     :as api]
-   [chat-dumper.auth    :as auth]
    [chat-dumper.parsers :as p]
-   [clojure.string      :as s]
-   [clj-time.coerce     :as c]
-   [clj-time.format     :as f]
    [clojure.java.io     :as io]))
 
 (def max-count 200)
 
+(defn create-folder [filename]
+  (io/make-parents filename))
 
 ;; for users:
 
@@ -100,7 +97,7 @@
   (let [total-count (-> (get-history-from-chat 0 chat-id) :response :count)]
     (if (zero? total-count)
       (throw (Throwable. "There's nothing to write!\nYour logs in this chat are empty. :("))
-      (do
+      (do 
         (println "Total count of messages in chat:" total-count)
         (loop [offset 0
                result []]
@@ -121,11 +118,11 @@
   [chat-id]
   (let [logs (dump-history-from-chat chat-id)
         ids-from-logs (set (map second logs))
-        output-file (str "chat_" chat-id ".txt")
+        output-file (str "logs/chat_" chat-id ".txt")
         final-output (if (.exists (io/as-file output-file))
                        (do
                          (io/delete-file output-file)
-                         (str "chat_" chat-id ".txt"))
+                         (str "logs/chat_" chat-id ".txt"))
                        output-file)]
     (println "Writing to file...")
     (letfn
